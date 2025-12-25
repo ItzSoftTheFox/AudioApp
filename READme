@@ -1,0 +1,32 @@
+# 🎵 C++ YouTube & Local Music Player
+
+A simple, lightweight CLI music player built in C++ that supports streaming audio from YouTube and playing local files.
+
+## 🚀 Features
+- **YouTube Integration**: Download and play audio directly from YouTube links (no ads!).
+- **Local File Support**: Play any `.mp3` or `.wav` file from your computer.
+- **Persistent Playlist**: Your playlist is automatically saved to `playlist.txt` and reloaded on startup.
+- **Volume Control**: Adjustable volume (0-100%).
+- **Audio Management**: Stops previous tracks before starting new ones to prevent overlapping.
+
+## 🛠️ Prerequisites
+To compile and run this application, you need:
+1. **C++ Compiler**: (e.g., MinGW/g++ for Windows).
+2. **FFmpeg**: Required for audio extraction from YouTube. [Download here](https://ffmpeg.org/download.html).
+3. **yt-dlp**: Required for downloading YouTube content. [Download here](https://github.com/yt-dlp/yt-dlp).
+
+## 📁 Directory Structure
+For the program to work correctly, set up your folders as follows:
+```text
+AudioApp/
+├── main.cpp
+├── miniaudio.h
+├── playlist.txt (auto-generated)
+├── songs/          <-- Folder for downloaded songs
+│   └── .gitkeep
+├── knihovny/       <-- Put external tools here
+│   ├── yt-dlp.exe
+│   ├── ffmpeg.exe
+│   ├── ffprobe.exe
+│   └── .gitkeep
+└── README.md

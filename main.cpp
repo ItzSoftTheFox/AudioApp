@@ -1,3 +1,8 @@
+/**
+ * PROJECT: My C++ Music Player
+ * FEATURES: YouTube download, Local file support, Playlist persistence, Volume control.
+ */
+
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio.h"
 
@@ -11,22 +16,30 @@
 
 using namespace std;
 
-// --- GLOBAL VARIABLES ---
+// --- GLOBAL VARIABLES (Audio Engine State) ---
 ma_engine engine;
-ma_sound currentSound; // This object represents the currently playing song
-bool isSoundInitialized = false; // Flag to track if currentSound is loaded
-float globalVolume = 0.5f; // Initial volume (50%)
+ma_sound currentSound; 
+bool isSoundInitialized = false; 
+float globalVolume = 0.5f; 
 
-// --- FILE HANDLING ---
+// --- FILE PERSISTENCE (Saving/Loading Playlist) ---
 
+/**
+ * Writes the playlist paths to playlist.txt so they persist after closing the app.
+ */
 void savePlaylist(const vector<string>& playlist) {
     ofstream outFile("playlist.txt");
     if (outFile.is_open()) {
-        for (const string& songPath : playlist) outFile << songPath << endl;
+        for (const string& songPath : playlist) {
+            outFile << songPath << endl;
+        }
         outFile.close();
     }
 }
 
+/**
+ * Reads playlist.txt and fills the vector with saved song paths.
+ */
 void loadPlaylist(vector<string>& playlist) {
     ifstream inFile("playlist.txt");
     string line;
@@ -36,14 +49,14 @@ void loadPlaylist(vector<string>& playlist) {
             if (!line.empty()) playlist.push_back(line);
         }
         inFile.close();
-        cout << "[System] Playlist loaded." << endl;
+        cout << "[System] Playlist loaded from disk." << endl;
     }
 }
 
-// --- AUDIO CONTROL ---
+// --- AUDIO LOGIC ---
 
 /**
- * Stops the current song and releases its resources.
+ * Safely stops and uninitializes the current sound object.
  */
 void stopCurrentSong() {
     if (isSoundInitialized) {
@@ -54,24 +67,29 @@ void stopCurrentSong() {
 }
 
 /**
- * Loads and plays a new song from the given path.
+ * Loads a song from a path and starts playback.
  */
 void playSong(string path) {
-    stopCurrentSong(); // Clean up previous song first
+    stopCurrentSong(); // Always stop previous song first
 
-    // Initialize the sound object from the file path
+    // Initialize the sound from file (supports MP3, WAV, etc.)
     ma_result result = ma_sound_init_from_file(&engine, path.c_str(), 0, NULL, NULL, &currentSound);
     
     if (result == MA_SUCCESS) {
-        ma_sound_set_volume(&currentSound, globalVolume); // Apply current volume
-        ma_sound_start(&currentSound); // Start playback
+        ma_sound_set_volume(&currentSound, globalVolume);
+        ma_sound_start(&currentSound);
         isSoundInitialized = true;
-        cout << "Playing: " << path << endl;
+        cout << "[Playing] " << path << endl;
     } else {
-        cerr << "Error: Could not load file: " << path << endl;
+        cerr << "[Error] Failed to load: " << path << endl;
     }
 }
 
+// --- SYSTEM UTILITIES ---
+
+/**
+ * Runs a terminal command and returns its output as a string.
+ */
 string getCommandOutput(string cmd) {
     array<char, 128> buffer;
     string result;
@@ -80,16 +98,20 @@ string getCommandOutput(string cmd) {
     while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
         result += buffer.data();
     }
+    // Trim newlines
     if (!result.empty() && result.back() == '\n') result.pop_back();
     if (!result.empty() && result.back() == '\r') result.pop_back();
     return result;
 }
 
-// --- MAIN ---
+// --- MAIN APPLICATION LOOP ---
 
 int main() {
-    // Start the engine once at the beginning
-    if (ma_engine_init(NULL, &engine) != MA_SUCCESS) return -1;
+    // Initialize the audio engine once at startup
+    if (ma_engine_init(NULL, &engine) != MA_SUCCESS) {
+        cerr << "Could not init audio engine!" << endl;
+        return -1;
+    }
 
     vector<string> playlist;
     string ytDlp = ".\\knihovny\\yt-dlp.exe";
@@ -98,57 +120,90 @@ int main() {
     loadPlaylist(playlist);
 
     while (true) {
-        cout << "\n--- MUSIC PLAYER ---" << endl;
+        cout << "\n===============================" << endl;
+        cout << "   MY C++ MUSIC PLAYER V1.0   " << endl;
+        cout << "===============================" << endl;
         cout << "1. Add from YouTube" << endl;
-        cout << "2. Playlist & Play" << endl;
-        cout << "3. Volume (Current: " << (int)(globalVolume * 100) << "%)" << endl;
-        cout << "4. Stop music" << endl;
-        cout << "5. Exit" << endl;
+        cout << "2. Add LOCAL file (path)" << endl;
+        cout << "3. Show Playlist & Play" << endl;
+        cout << "4. Volume (Current: " << (int)(globalVolume * 100) << "%)" << endl;
+        cout << "5. Stop playback" << endl;
+        cout << "6. Exit" << endl;
         cout << "Choice: ";
         cin >> choice;
 
         if (choice == 1) {
             string url;
-            cout << "Link: "; cin >> url;
+            cout << "Paste URL: "; cin >> url;
+            
             cout << "Fetching title..." << endl;
             string title = getCommandOutput(ytDlp + " --get-title --no-warnings \"" + url + "\"");
-            for(int i = 0; i < title.length(); i++) if(title[i] == ' ') title[i] = '_';
+            
+            // Basic sanitization for Windows file paths
+            for(char &c : title) if(c == ' ') c = '_';
 
             string filename = "songs\\" + title + ".mp3";
-            cout << "Downloading..." << endl;
-            system((ytDlp + " -x --audio-format mp3 --no-warnings -o \"" + filename + "\" \"" + url + "\"").c_str());
+            cout << "Downloading audio..." << endl;
+            string dlCmd = ytDlp + " -x --audio-format mp3 --no-warnings -o \"" + filename + "\" \"" + url + "\"";
+            system(dlCmd.c_str());
 
             playlist.push_back(filename);
             savePlaylist(playlist);
+            cout << "[Success] Added YouTube song." << endl;
         } 
         else if (choice == 2) {
-            if (playlist.empty()) { cout << "Empty!" << endl; continue; }
-            for (int i = 0; i < playlist.size(); i++) cout << i + 1 << ". " << playlist[i] << endl;
-            cout << "Song number: ";
+            string localPath;
+            cout << "Enter full path to .mp3 file: " << endl;
+            cin.ignore(); // Clear the newline from previous 'cin >> choice'
+            getline(cin, localPath);
+
+            // Verify if the local file exists
+            ifstream f(localPath.c_str());
+            if (f.good()) {
+                playlist.push_back(localPath);
+                savePlaylist(playlist);
+                cout << "[Success] Local file added." << endl;
+            } else {
+                cout << "[Error] File not found at that location!" << endl;
+            }
+        }
+        else if (choice == 3) {
+            if (playlist.empty()) {
+                cout << "Playlist is empty!" << endl;
+                continue;
+            }
+            cout << "\n--- CURRENT PLAYLIST ---" << endl;
+            for (int i = 0; i < playlist.size(); i++) {
+                cout << i + 1 << ". " << playlist[i] << endl;
+            }
+            cout << "Pick a song number: ";
             int index; cin >> index;
             if (index > 0 && index <= playlist.size()) {
                 playSong(playlist[index - 1]);
             }
         }
-        else if (choice == 3) {
-            cout << "Enter volume (0-100): ";
+        else if (choice == 4) {
+            cout << "New volume (0-100): ";
             int vol; cin >> vol;
-            globalVolume = vol / 100.0f; // Convert 0-100 to 0.0-1.0
+            globalVolume = vol / 100.0f;
             if (isSoundInitialized) {
                 ma_sound_set_volume(&currentSound, globalVolume);
             }
-            cout << "Volume set to " << vol << "%" << endl;
-        }
-        else if (choice == 4) {
-            stopCurrentSong();
-            cout << "Playback stopped." << endl;
+            cout << "Volume adjusted." << endl;
         }
         else if (choice == 5) {
+            stopCurrentSong();
+            cout << "Music stopped." << endl;
+        }
+        else if (choice == 6) {
             break;
         }
     }
 
-    stopCurrentSong(); // Clean up sound before exiting
-    ma_engine_uninit(&engine); // Turn off the engine
+    // Cleanup before closing
+    stopCurrentSong();
+    ma_engine_uninit(&engine);
+    cout << "Application closed. Happy coding!" << endl;
+
     return 0;
 }
