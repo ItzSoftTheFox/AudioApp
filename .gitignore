@@ -1,0 +1,45 @@
+# Build artifacts
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# IDE and editor files
+.vscode/
+.vs/
+.idea/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.cbp
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Compiled output
+bin/
+build/
+out/
+
+# Audio files
+songs/
+*.mp3
+*.wav
+*.flac
+*.ogg
+
+# Playlist data
+*.json
+*.txt
+
+# Temporary files
+*.tmp
+*.temp
+~*
